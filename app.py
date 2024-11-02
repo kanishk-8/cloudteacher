@@ -295,9 +295,8 @@ if "user_id" in st.session_state:
 
             # Display notes in scrollable text area
             with st.expander("Generated Notes", expanded=True):
-                #st.text_area("Notes", notes, height=500, key="notes_area")
-                notes=st.markdown(notes, unsafe_allow_html=True)
-                st.text_area("Notes",notes,height=500, key="notes_area")
+                st.markdown(notes, unsafe_allow_html=True)
+
 
     elif option == "Ask Doubt":
         question = st.text_input("Enter your question:")
