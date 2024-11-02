@@ -288,14 +288,16 @@ if "user_id" in st.session_state:
             if comments:
                 prompt += f" Additional instructions: {comments}"
 
-            notes = generate_content_with_file(prompt, pdf_path)
+            with st.spinner("Generating notes..."):
+                notes = generate_content_with_file(prompt, pdf_path)
             st.session_state.chat_history.append({"role": "AI", "content": notes})
             save_message(st.session_state.user_id, "AI", notes)
 
             # Display notes in scrollable text area
             with st.expander("Generated Notes", expanded=True):
                 #st.text_area("Notes", notes, height=500, key="notes_area")
-                st.text_area("Notes",st.markdown(notes, unsafe_allow_html=True),height=500, key="notes_area")
+                notes=st.markdown(notes, unsafe_allow_html=True)
+                st.text_area("Notes",notes,height=500, key="notes_area")
 
     elif option == "Ask Doubt":
         question = st.text_input("Enter your question:")
