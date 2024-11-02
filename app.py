@@ -162,9 +162,12 @@ if "user_id" in st.session_state:
 
         # New "Clear History" button
         if st.button("Clear History"):
-            db.collection("chat_context").document(st.session_state.user_id).update({"context": []})
-            st.session_state.chat_history = []
-            st.experimental_rerun()
+            try:
+                db.collection("chat_context").document(st.session_state.user_id).update({"context": []})
+                st.session_state.clear()  # Clears all session state variables
+                st.success("Chat history cleared successfully!")
+            except Exception as e:
+                st.error(f"Error clearing history: {str(e)}")
 
         user = auth.get_user(st.session_state.user_id)
         st.title("Welcome")
