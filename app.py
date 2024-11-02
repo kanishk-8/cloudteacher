@@ -193,8 +193,6 @@ st.set_page_config(layout="wide")
 # Sidebar and User Authentication
 if "user_id" in st.session_state:
     with st.sidebar:
-        st.title("Welcome")
-        st.write(f"Email: {user.email}")
         st.title("Chat History")
         chat_context = load_chat_history(st.session_state.user_id)
         
