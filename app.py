@@ -14,9 +14,12 @@ load_dotenv()
 
 # Firebase and Google Generative AI Configuration
 if not firebase_admin._apps:
-    cred = credentials.Certificate("./req/cloudteacher-995a5-firebase-adminsdk-52jrx-5bf86696c8.json")
+    # Load Firebase credentials from Streamlit secrets
+    cred = credentials.Certificate(st.secrets["firebase_credentials"])
     firebase_admin.initialize_app(cred)
 db = firestore.client()
+
+# Load API key from secrets for Google Generative AI
 api_key = st.secrets["GEMINI_API_KEY"]
 genai.configure(api_key=api_key)
 
