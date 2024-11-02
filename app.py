@@ -65,13 +65,32 @@ def generate_content(prompt):
     except Exception as e:
         return f"Error generating content: {str(e)}"
 
-# Firebase Authentication functions
+import requests  # Add this import to use REST API requests
+
 def firebase_login(email, password):
     try:
-        user = auth.get_user_by_email(email)
-        return user
-    except:
-        return None
+        api_key = st.secrets["FIREBASE_WEB_API_KEY"]  # Add your Firebase Web API key to Streamlit secrets
+        url = f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={api_key}"
+        
+        payload = {
+            "email": email,
+            "password": password,
+            "returnSecureToken": True
+        }
+        response = requests.post(url, json=payload)
+        data = response.json()
+
+        if response.status_code == 200:
+            # Authentication successful
+            user_id = data['localId']
+            st.session_state.user_id = user_id
+            return user_id  # Return the user ID on successful login
+        else:
+            # Authentication failed
+            return None
+    except Exception as e:
+        return f"Error during login: {str(e)}"
+
 
 def firebase_signup(email, password):
     try:
