@@ -262,60 +262,58 @@ if "user_id" not in st.session_state:
 # Chatbot Interface for Authenticated
 if "user_id" in st.session_state:
     option = st.selectbox("Choose an option:", ["Generate Notes", "Ask Doubt", "Take Quiz"])
+    if option == "Generate Notes":
+        selected_unit = st.selectbox("Select Unit", list(units.keys()))
+        if selected_unit != "Select Unit":
+            topics = units[selected_unit]
+        else:
+            topics = ["Select a Unit first"]
+        selected_topic = st.selectbox("Select Topic", topics)
+        pdf_file = st.file_uploader("Upload PDF for context (optional)")
+        default_pdf_path = "./req/Master_Intro. to cloud computing 1.pdf"
+        if pdf_file:
+            if "temp_pdf_path" not in st.session_state:
+                temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
+                temp_file.write(pdf_file.getbuffer())
+                st.session_state.temp_pdf_path = temp_file.name
+            pdf_path = st.session_state.temp_pdf_path
+        else:
+            pdf_path = default_pdf_path
 
-# Display notes in a scrollable interface with download option
-if option == "Generate Notes":
-    selected_unit = st.selectbox("Select Unit", list(units.keys()))
-    if selected_unit != "Select Unit":
-        topics = units[selected_unit]
-    else:
-        topics = ["Select a Unit first"]
-    selected_topic = st.selectbox("Select Topic", topics)
-    pdf_file = st.file_uploader("Upload PDF for context (optional)")
-    default_pdf_path = "./req/Master_Intro. to cloud computing 1.pdf"
-    if pdf_file:
-        if "temp_pdf_path" not in st.session_state:
-            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
-            temp_file.write(pdf_file.getbuffer())
-            st.session_state.temp_pdf_path = temp_file.name
-        pdf_path = st.session_state.temp_pdf_path
-    else:
-        pdf_path = default_pdf_path
+        comments = st.text_area("Additional comments or instructions (optional):")
+        num_pages = st.slider("Number of pages to use from the PDF:", min_value=1, max_value=20, value=5)
 
-    comments = st.text_area("Additional comments or instructions (optional):")
-    num_pages = st.slider("Number of pages to use from the PDF:", min_value=1, max_value=20, value=5)
+        if st.button("Generate Notes"):
+            prompt = f"Generate detailed notes on {selected_topic} using up to {num_pages} pages."
+            if comments:
+                prompt += f" Additional instructions: {comments}"
 
-    if st.button("Generate Notes"):
-        prompt = f"Generate detailed notes on {selected_topic} using up to {num_pages} pages."
-        if comments:
-            prompt += f" Additional instructions: {comments}"
+            notes = generate_content_with_file(prompt, pdf_path)
+            st.session_state.chat_history.append({"role": "AI", "content": notes})
+            save_message(st.session_state.user_id, "AI", notes)
 
-        notes = generate_content_with_file(prompt, pdf_path)
-        st.session_state.chat_history.append({"role": "AI", "content": notes})
-        save_message(st.session_state.user_id, "AI", notes)
+            # Display notes in scrollable text area
+            with st.expander("Generated Notes", expanded=True):
+                st.text_area("Notes", notes, height=300, key="notes_area")
 
-        # Display notes in scrollable text area
-        with st.expander("Generated Notes", expanded=True):
-            st.text_area("Notes", notes, height=300, key="notes_area")
+            # Option to download notes as PDF
+            if st.button("Download Notes as PDF"):
+                buffer = BytesIO()
+                pdf = canvas.Canvas(buffer, pagesize=letter)
+                text = pdf.beginText(40, 750)
+                text.setFont("Helvetica", 12)
+                text.setLeading(14)
+                text.textLines(notes)
+                pdf.drawText(text)
+                pdf.save()
 
-        # Option to download notes as PDF
-        if st.button("Download Notes as PDF"):
-            buffer = BytesIO()
-            pdf = canvas.Canvas(buffer, pagesize=letter)
-            text = pdf.beginText(40, 750)
-            text.setFont("Helvetica", 12)
-            text.setLeading(14)
-            text.textLines(notes)
-            pdf.drawText(text)
-            pdf.save()
-
-            buffer.seek(0)
-            st.download_button(
-                label="Download Notes",
-                data=buffer,
-                file_name="generated_notes.pdf",
-                mime="application/pdf"
-            )
+                buffer.seek(0)
+                st.download_button(
+                    label="Download Notes",
+                    data=buffer,
+                    file_name="generated_notes.pdf",
+                    mime="application/pdf"
+                )
 
     elif option == "Ask Doubt":
         question = st.text_input("Enter your question:")
