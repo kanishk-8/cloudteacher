@@ -8,8 +8,9 @@ import tempfile
 import requests
 from random import randint
 import os
-import pdfkit
-from io import BytesIO
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
+import io
 
 # Load environment variables
 load_dotenv()
@@ -291,20 +292,36 @@ if "user_id" in st.session_state:
                 notes = generate_content_with_file(prompt, pdf_path)
             st.session_state.chat_history.append({"role": "AI", "content": notes})
             save_message(st.session_state.user_id, "AI", notes)
+            if st.button("Print as PDF"):
+                pdf_buffer = io.BytesIO()
+                
+                # Use ReportLab to create a PDF in the buffer
+                c = canvas.Canvas(pdf_buffer, pagesize=A4)
+                text_object = c.beginText(40, 800)  # Set start position
 
+                # Add text content from notes
+                for line in notes.splitlines():
+                    text_object.textLine(line)  # Adds each line of text
+
+                c.drawText(text_object)
+                c.showPage()
+                c.save()
+
+                # Set buffer to start to ensure complete data read
+                pdf_buffer.seek(0)
+                
+                # Provide download button for the PDF file
+                st.download_button(
+                    label="Download PDF",
+                    data=pdf_buffer,
+                    file_name="generated_notes.pdf",
+                    mime="application/pdf"
+                )
+                print(pdf_buffer)
             # Display notes in scrollable text area
             with st.expander("Generated Notes", expanded=True):
                 st.markdown(notes, unsafe_allow_html=True)
-            if st.button("Print as PDF"):
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
-                    pdfkit.from_string(notes, tmp_file.name)
-                    tmp_file.seek(0)
-                    st.download_button(
-                        label="Download PDF",
-                        data=tmp_file.read(),
-                        file_name="generated_notes.pdf",
-                        mime="application/pdf"
-                    )
+            
 
     elif option == "Ask Doubt":
         question = st.text_input("Enter your question:")
