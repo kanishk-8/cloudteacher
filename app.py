@@ -7,7 +7,7 @@ from pptx import Presentation
 from random import randint
 from dotenv import load_dotenv  # Import dotenv to load .env file
 import fitz  # PyMuPDF for extracting text from PDFs
-
+import json 
 
 # Load environment variables from .env file
 load_dotenv()
@@ -15,7 +15,8 @@ load_dotenv()
 # Firebase and Google Generative AI Configuration
 if not firebase_admin._apps:
     # Load Firebase credentials from Streamlit secrets
-    cred = credentials.Certificate(st.secrets["firebase_credentials"])
+    firebase_credentials = json.loads(st.secrets["firebase_credentials"])
+    cred = credentials.Certificate(firebase_credentials)
     firebase_admin.initialize_app(cred)
 db = firestore.client()
 
