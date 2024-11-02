@@ -95,10 +95,10 @@ def firebase_signup(email, password):
         return str(e)
 
 # Notes Generation
-'''def generate_notes(topic, pdf_context):
+def generate_notes(topic, pdf_context):
     prompt = f"Generate detailed notes on {topic} using the following context: {pdf_context}"
-    return generate_content(prompt)'''
-def generate_notes(prompt, pdf_path):
+    return generate_content(prompt)
+def generate_content_with_file(prompt, pdf_path):
     try:
         model = genai.GenerativeModel(model_name="gemini-1.5-flash")
         sample_pdf = genai.upload_file(pdf_path)
