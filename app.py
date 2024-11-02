@@ -319,7 +319,6 @@ if "user_id" in st.session_state:
                         label="Download PDF",
                         data=pdf_buffer,
                         file_name="generated_notes.pdf",
-                        mime="application/pdf"
                     )
             with st.expander("Generated Notes", expanded=True):
                 st.markdown(notes, unsafe_allow_html=True)
