@@ -95,9 +95,18 @@ def firebase_signup(email, password):
         return str(e)
 
 # Notes Generation
-def generate_notes(topic, pdf_context):
+'''def generate_notes(topic, pdf_context):
     prompt = f"Generate detailed notes on {topic} using the following context: {pdf_context}"
-    return generate_content(prompt)
+    return generate_content(prompt)'''
+def generate_notes(prompt, pdf_path):
+    try:
+        model = genai.GenerativeModel(model_name="gemini-1.5-flash")
+        sample_pdf = genai.upload_file(pdf_path)
+        response = model.generate_content([prompt, sample_pdf])
+        return response.text if response else "No response generated."
+    except Exception as e:
+        return f"Error generating content: {str(e)}"
+
 
 # Quiz Creation and Evaluation
 def generate_quiz(subject):
@@ -196,11 +205,21 @@ if "user_id" in st.session_state:
 
     if option == "Generate Notes":
         topic = st.text_input("Enter the topic for notes generation:")
-        pdf_path = "./req/Master_Intro. to cloud computing 1.pdf"
-        pdf_context = extract_pdf_text(pdf_path)
+        pdf_file = st.file_uploader("Upload PDF for context (optional)")
+
+        # Use uploaded file if available, otherwise use default path
+        pdf_path = pdf_file if pdf_file else "./req/Master_Intro. to cloud computing 1.pdf"
+
+        # Additional options
+        comments = st.text_area("Additional comments or instructions (optional):")
+        num_pages = st.slider("Number of pages to use from the PDF:", min_value=1, max_value=20, value=5)
 
         if st.button("Generate Notes"):
-            notes = generate_notes(topic, pdf_context)
+            prompt = f"Generate detailed notes on {topic} using up to {num_pages} pages."
+            if comments:
+                prompt += f" Additional instructions: {comments}"
+            
+            notes = generate_content_with_file(prompt, pdf_path)
             st.write(notes)
             st.session_state.chat_history.append({"role": "AI", "content": notes})
             save_message(st.session_state.user_id, "AI", notes)
