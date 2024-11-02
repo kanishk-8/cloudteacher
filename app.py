@@ -292,36 +292,8 @@ if "user_id" in st.session_state:
                 notes = generate_content_with_file(prompt, pdf_path)
             st.session_state.chat_history.append({"role": "AI", "content": notes})
             save_message(st.session_state.user_id, "AI", notes)
-            with st.form("pdf_download_form"):
-                generate_pdf = st.form_submit_button("Print as PDF")
-
-                if generate_pdf:
-                    # Create a BytesIO buffer to store PDF
-                    pdf_buffer = io.BytesIO()
-                    
-                    # Use ReportLab to create a PDF in the buffer
-                    c = canvas.Canvas(pdf_buffer, pagesize=A4)
-                    text_object = c.beginText(40, 800)  # Set start position
-
-                    # Add text content from notes
-                    for line in notes.splitlines():
-                        text_object.textLine(line)  # Adds each line of text
-
-                    c.drawText(text_object)
-                    c.showPage()
-                    c.save()
-
-                    # Set buffer to start to ensure complete data read
-                    pdf_buffer.seek(0)
-                    
-                    # Provide download button for the PDF file
-                    st.download_button(
-                        label="Download PDF",
-                        data=pdf_buffer,
-                        file_name="generated_notes.pdf",
-                    )
             with st.expander("Generated Notes", expanded=True):
-                st.markdown(notes, unsafe_allow_html=True)
+                st.text_area(notes, height=500)
             
 
     elif option == "Ask Doubt":
