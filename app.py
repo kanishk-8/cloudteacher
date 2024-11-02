@@ -269,9 +269,6 @@ if "user_id" in st.session_state:
             topics = ["Select a Unit first"]
         selected_topic = st.selectbox("Select Topic", topics)
         pdf_file = st.file_uploader("Upload PDF for context (optional)")
-
-        # Use uploaded file if available, otherwise use default path
-        pdf_file = st.file_uploader("Upload PDF for context (optional)")
         default_pdf_path = "./req/Master_Intro. to cloud computing 1.pdf"
         if pdf_file:
             if "temp_pdf_path" not in st.session_state:
