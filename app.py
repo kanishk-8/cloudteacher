@@ -8,9 +8,8 @@ import tempfile
 import requests
 from random import randint
 import os
+import pdfkit
 from io import BytesIO
-from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
 
 # Load environment variables
 load_dotenv()
@@ -295,16 +294,17 @@ if "user_id" in st.session_state:
 
             # Display notes in scrollable text area
             with st.expander("Generated Notes", expanded=True):
-                st.markdown(notes+"""<style>
-                            .scrollable-markdown {
-                            max-height: 400px;
-                            overflow-y: auto;
-                            padding: 10px;
-                            border: 1px solid #ddd;
-                            border-radius: 5px;
-                            background-color: #f9f9f9;}
-                            </style>""", unsafe_allow_html=True)
-
+                st.markdown(notes, unsafe_allow_html=True)
+            if st.button("Print as PDF"):
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
+                    pdfkit.from_string(notes, tmp_file.name)
+                    tmp_file.seek(0)
+                    st.download_button(
+                        label="Download PDF",
+                        data=tmp_file.read(),
+                        file_name="generated_notes.pdf",
+                        mime="application/pdf"
+                    )
 
     elif option == "Ask Doubt":
         question = st.text_input("Enter your question:")

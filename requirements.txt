@@ -4,4 +4,4 @@ google-generativeai
 python-pptx
 python-dotenv   
 pymupdf
-reportlab        
+import pdfkit      
