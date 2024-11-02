@@ -1,13 +1,11 @@
 import streamlit as st
-import os
 import firebase_admin
 from firebase_admin import credentials, firestore, auth
 import google.generativeai as genai
-from pptx import Presentation
-from random import randint
 from dotenv import load_dotenv
 import fitz  # PyMuPDF for extracting text from PDFs
 import requests
+from random import randint
 
 # Load environment variables
 load_dotenv()
@@ -121,17 +119,18 @@ def evaluate_quiz(user_answers, quiz):
 # Load and Save Chat History
 def load_chat_history(user_id):
     try:
-        chat_docs = db.collection("chat_context").document(user_id).get().to_dict()
-        return chat_docs.get("context", []) if chat_docs else []
+        chat_doc = db.collection("chat_context").document(user_id).get().to_dict()
+        return chat_doc.get("context", []) if chat_doc else []
     except Exception as e:
         st.error(f"Error loading chat history: {str(e)}")
         return []
 
 def save_message(user_id, role, content):
     try:
-        db.collection("chat_context").document(user_id).update({
+        # If the document doesn't exist, create it with an empty context array
+        db.collection("chat_context").document(user_id).set({
             "context": firestore.ArrayUnion([{"role": role, "content": content}])
-        })
+        }, merge=True)
     except Exception as e:
         st.error(f"Error saving message: {str(e)}")
 
@@ -142,9 +141,12 @@ st.set_page_config(layout="wide")
 if "user_id" in st.session_state:
     with st.sidebar:
         st.title("Chat History")
-
         chat_context = load_chat_history(st.session_state.user_id)
-        for i, message in enumerate(chat_context):
+        
+        # Display chat history and save to session state
+        if chat_context:
+            st.session_state.chat_history = chat_context
+        for i, message in enumerate(st.session_state.chat_history):
             short_heading = f"{message['role']}: {message['content'][:30]}..."
             with st.expander(short_heading):
                 st.write(message['content'])
@@ -201,6 +203,7 @@ if "user_id" in st.session_state:
             notes = generate_notes(topic, pdf_context)
             st.write(notes)
             st.session_state.chat_history.append({"role": "AI", "content": notes})
+            save_message(st.session_state.user_id, "AI", notes)
 
     elif option == "Ask Doubt":
         question = st.text_input("Enter your question:")
@@ -208,6 +211,7 @@ if "user_id" in st.session_state:
             answer = generate_content(f"Answer this question: {question}")
             st.write(answer)
             st.session_state.chat_history.append({"role": "AI", "content": answer})
+            save_message(st.session_state.user_id, "AI", answer)
 
     elif option == "Take Quiz":
         subject = st.text_input("Enter the subject for the quiz:")
@@ -228,4 +232,6 @@ if "user_id" in st.session_state:
         if st.button("Submit Quiz") and st.session_state.quiz:
             correct, total = evaluate_quiz(st.session_state.user_answers, st.session_state.quiz)
             st.write(f"You scored {correct} out of {total}!")
-            st.session_state.chat_history.append({"role": "AI", "content": f"Quiz score: {correct}/{total}"})
+            quiz_score_message = f"Quiz score: {correct}/{total}"
+            st.session_state.chat_history.append({"role": "AI", "content": quiz_score_message})
+            save_message(st.session_state.user_id, "AI", quiz_score_message)
