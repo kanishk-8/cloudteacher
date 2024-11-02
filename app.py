@@ -306,7 +306,7 @@ if "user_id" in st.session_state:
                 c.drawText(text_object)
                 c.showPage()
                 c.save()
-
+                (pdf_buffer)
                 # Set buffer to start to ensure complete data read
                 pdf_buffer.seek(0)
                 
@@ -317,7 +317,6 @@ if "user_id" in st.session_state:
                     file_name="generated_notes.pdf",
                     mime="application/pdf"
                 )
-                print(pdf_buffer)
             # Display notes in scrollable text area
             with st.expander("Generated Notes", expanded=True):
                 st.markdown(notes, unsafe_allow_html=True)
