@@ -1,0 +1,6 @@
+streamlit       
+firebase-admin   
+google-generativeai        
+python-pptx
+python-dotenv   
+pymupdf          
