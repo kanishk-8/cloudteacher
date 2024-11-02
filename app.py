@@ -281,10 +281,10 @@ if "user_id" in st.session_state:
             pdf_path = default_pdf_path
 
         comments = st.text_area("Additional comments or instructions (optional):")
-        num_pages = st.slider("Number of pages to use from the PDF:", min_value=1, max_value=20, value=5)
+        num_pages = st.slider("Number of pages:", min_value=1, max_value=20, value=5)
 
         if st.button("Generate Notes"):
-            prompt = f"Generate detailed notes on {selected_topic} using up to {num_pages} pages."
+            prompt = f"Generate detailed notes on {selected_topic} of approximately {num_pages} pages."
             if comments:
                 prompt += f" Additional instructions: {comments}"
 
@@ -293,7 +293,7 @@ if "user_id" in st.session_state:
             st.session_state.chat_history.append({"role": "AI", "content": notes})
             save_message(st.session_state.user_id, "AI", notes)
             with st.expander("Generated Notes", expanded=True):
-                st.text_area(notes, height=500)
+                st.markdown(notes, unsafe_allow_html=True)
             
 
     elif option == "Ask Doubt":
