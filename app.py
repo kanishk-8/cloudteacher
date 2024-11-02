@@ -294,26 +294,7 @@ if "user_id" in st.session_state:
 
             # Display notes in scrollable text area
             with st.expander("Generated Notes", expanded=True):
-                st.text_area("Notes", notes, height=300, key="notes_area")
-
-            # Option to download notes as PDF
-            if st.button("Download Notes as PDF"):
-                buffer = BytesIO()
-                pdf = canvas.Canvas(buffer, pagesize=letter)
-                text = pdf.beginText(40, 750)
-                text.setFont("Helvetica", 12)
-                text.setLeading(14)
-                text.textLines(notes)
-                pdf.drawText(text)
-                pdf.save()
-
-                buffer.seek(0)
-                st.download_button(
-                    label="Download Notes",
-                    data=buffer,
-                    file_name="generated_notes.pdf",
-                    mime="application/pdf"
-                )
+                st.text_area("Notes", notes, height=500, key="notes_area")
 
     elif option == "Ask Doubt":
         question = st.text_input("Enter your question:")
