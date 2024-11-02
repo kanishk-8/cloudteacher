@@ -252,7 +252,7 @@ if "user_id" not in st.session_state:
             else:
                 st.success("Account created successfully! Please log in.")
 
-# Chatbot Interface for Authenticated Users
+# Chatbot Interface for Authenticated
 if "user_id" in st.session_state:
     option = st.selectbox("Choose an option:", ["Generate Notes", "Ask Doubt", "Take Quiz"])
 
