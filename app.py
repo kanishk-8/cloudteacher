@@ -10,6 +10,48 @@ from random import randint
 # Load environment variables
 load_dotenv()
 
+units = {
+    "Unit I": [
+        "Introduction to Cloud Computing",
+        "Definition, Characteristics, Components",
+        "Cloud Service provider",
+        "Software As a Service (SAAS)",
+        "Platform As a Service (PAAS)",
+        "Infrastructure as a Service (IAAS)",
+        "Load balancing and Resource optimization",
+        "Comparison among Cloud computing platforms: Amazon EC2, Google App Engine, Microsoft Azure, Meghraj"
+    ],
+    "Unit II": [
+        "Introduction to Cloud Technologies",
+        "Study of Hypervisors",
+        "SOAP and REST",
+        "Webservices and Mashups",
+        "Virtual machine technology",
+        "Virtualization applications in enterprises",
+        "Pitfalls of virtualization",
+        "Multi-entity support",
+        "Multi-schema approach",
+        "Multi-tenancy using cloud data stores"
+    ],
+    "Unit III": [
+        "Cloud security fundamentals",
+        "Vulnerability assessment tool for cloud",
+        "Privacy and Security in cloud",
+        "Cloud computing security architecture",
+        "Issues in cloud computing",
+        "Intercloud environments",
+        "QoS Issues in Cloud",
+        "Streaming in Cloud",
+        "Quality of Service (QoS) monitoring",
+        "Inter Cloud issues"
+    ],
+    "Unit IV": [
+        "MICEF Computing (Mist, IOT, Cloud, Edge and FOG Computing)",
+        "Dew Computing: Concept and Application",
+        "Case Study: MiCEF Computing Programs using CloudSim and iFogSim"
+    ]
+}
+
 # Firebase Initialization
 if not firebase_admin._apps:
     firebase_credentials = {
@@ -215,7 +257,12 @@ if "user_id" in st.session_state:
     option = st.selectbox("Choose an option:", ["Generate Notes", "Ask Doubt", "Take Quiz"])
 
     if option == "Generate Notes":
-        topic = st.text_input("Enter the topic for notes generation:")
+        selected_unit = st.selectbox("Select Unit", list(units.keys()))
+        if selected_unit != "Select Unit":
+            topics = units[selected_unit]
+        else:
+            topics = ["Select a Unit first"]
+        selected_topic = st.selectbox("Select Topic", topics)
         pdf_file = st.file_uploader("Upload PDF for context (optional)")
 
         # Use uploaded file if available, otherwise use default path
@@ -226,7 +273,7 @@ if "user_id" in st.session_state:
         num_pages = st.slider("Number of pages to use from the PDF:", min_value=1, max_value=20, value=5)
 
         if st.button("Generate Notes"):
-            prompt = f"Generate detailed notes on {topic} using up to {num_pages} pages."
+            prompt = f"Generate detailed notes on {selected_topic} using up to {num_pages} pages. if pdf is unrelated to document respond with irrelevant document provided"
             if comments:
                 prompt += f" Additional instructions: {comments}"
             
