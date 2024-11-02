@@ -4,8 +4,10 @@ from firebase_admin import credentials, firestore, auth
 import google.generativeai as genai
 from dotenv import load_dotenv
 import fitz  # PyMuPDF for extracting text from PDFs
+import tempfile
 import requests
 from random import randint
+import os
 
 # Load environment variables
 load_dotenv()
@@ -218,6 +220,9 @@ if "user_id" in st.session_state:
         # Logout Button
         if st.button("Logout"):
             st.session_state.clear()
+            if "temp_pdf_path" in st.session_state:
+                os.remove(st.session_state.temp_pdf_path)
+                del st.session_state.temp_pdf_path
             st.rerun()
 
 # Main Content
@@ -266,8 +271,16 @@ if "user_id" in st.session_state:
         pdf_file = st.file_uploader("Upload PDF for context (optional)")
 
         # Use uploaded file if available, otherwise use default path
-        pdf_path = pdf_file if pdf_file else "./req/Master_Intro. to cloud computing 1.pdf"
-
+        pdf_file = st.file_uploader("Upload PDF for context (optional)")
+        default_pdf_path = "./req/Master_Intro. to cloud computing 1.pdf"
+        if pdf_file:
+            if "temp_pdf_path" not in st.session_state:
+                temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
+                temp_file.write(pdf_file.getbuffer())
+                st.session_state.temp_pdf_path = temp_file.name
+            pdf_path = st.session_state.temp_pdf_path
+        else:
+            pdf_path = default_pdf_path
         # Additional options
         comments = st.text_area("Additional comments or instructions (optional):")
         num_pages = st.slider("Number of pages to use from the PDF:", min_value=1, max_value=20, value=5)
