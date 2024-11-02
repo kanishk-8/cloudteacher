@@ -163,6 +163,17 @@ if "user_id" in st.session_state:
         user = auth.get_user(st.session_state.user_id)
         st.title("Welcome")
         st.write(f"Email: {user.email}")
+
+        # Clear History Button
+        if st.button("Clear History"):
+            try:
+                db.collection("chat_context").document(st.session_state.user_id).set({"context": []})
+                st.session_state.chat_history = []
+                st.success("Chat history cleared!")
+            except Exception as e:
+                st.error(f"Error clearing history: {str(e)}")
+
+        # Logout Button
         if st.button("Logout"):
             st.session_state.clear()
             st.rerun()
