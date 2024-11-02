@@ -295,7 +295,15 @@ if "user_id" in st.session_state:
 
             # Display notes in scrollable text area
             with st.expander("Generated Notes", expanded=True):
-                st.markdown(notes, unsafe_allow_html=True)
+                st.markdown(notes+"""<style>
+                            .scrollable-markdown {
+                            max-height: 400px;
+                            overflow-y: auto;
+                            padding: 10px;
+                            border: 1px solid #ddd;
+                            border-radius: 5px;
+                            background-color: #f9f9f9;}
+                            </style>""", unsafe_allow_html=True)
 
 
     elif option == "Ask Doubt":
