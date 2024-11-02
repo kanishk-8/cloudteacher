@@ -306,7 +306,7 @@ if "user_id" in st.session_state:
                 c.drawText(text_object)
                 c.showPage()
                 c.save()
-                (pdf_buffer)
+                st.write(pdf_buffer)
                 # Set buffer to start to ensure complete data read
                 pdf_buffer.seek(0)
                 
