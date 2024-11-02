@@ -4,4 +4,3 @@ google-generativeai
 python-pptx
 python-dotenv   
 pymupdf          
-tempfile
