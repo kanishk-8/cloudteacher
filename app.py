@@ -5,15 +5,15 @@ from firebase_admin import credentials, firestore, auth
 import google.generativeai as genai
 from pptx import Presentation
 from random import randint
-from dotenv import load_dotenv  # Import dotenv to load .env file
+from dotenv import load_dotenv
 import fitz  # PyMuPDF for extracting text from PDFs
-import json 
+import requests
 
-# Load environment variables from .env file
+# Load environment variables
 load_dotenv()
-# Firebase and Google Generative AI Configuration
+
+# Firebase Initialization
 if not firebase_admin._apps:
-    # Load Firebase credentials from Streamlit secrets
     firebase_credentials = {
         "type": st.secrets["firebase_credentials"]["type"],
         "project_id": st.secrets["firebase_credentials"]["project_id"],
@@ -30,12 +30,12 @@ if not firebase_admin._apps:
     firebase_admin.initialize_app(cred)
 db = firestore.client()
 
-# Load API key from secrets for Google Generative AI
+# Google Generative AI Configuration
 api_key = st.secrets["GEMINI_API_KEY"]
 genai.configure(api_key=api_key)
-
 model_name = "gemini-1.5-flash"
 
+# Session States
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 if "quiz" not in st.session_state:
@@ -43,7 +43,7 @@ if "quiz" not in st.session_state:
 if "user_answers" not in st.session_state:
     st.session_state.user_answers = []
 
-# Function to extract text from a PDF file
+# PDF Text Extraction
 def extract_pdf_text(pdf_path):
     try:
         text_content = ""
@@ -54,9 +54,8 @@ def extract_pdf_text(pdf_path):
         return text_content
     except Exception as e:
         return f"Error extracting text from PDF: {str(e)}"
-    
-    
-# AI Generation functions
+
+# AI Content Generation
 def generate_content(prompt):
     try:
         model = genai.GenerativeModel(model_name=model_name)
@@ -65,11 +64,10 @@ def generate_content(prompt):
     except Exception as e:
         return f"Error generating content: {str(e)}"
 
-import requests  # Add this import to use REST API requests
-
+# Firebase Login
 def firebase_login(email, password):
     try:
-        api_key = st.secrets["FIREBASE_WEB_API_KEY"]  # Add your Firebase Web API key to Streamlit secrets
+        api_key = st.secrets["FIREBASE_WEB_API_KEY"]
         url = f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={api_key}"
         
         payload = {
@@ -81,17 +79,16 @@ def firebase_login(email, password):
         data = response.json()
 
         if response.status_code == 200:
-            # Authentication successful
             user_id = data['localId']
             st.session_state.user_id = user_id
-            return user_id  # Return the user ID on successful login
+            return user_id
         else:
-            # Authentication failed
             return None
     except Exception as e:
-        return f"Error during login: {str(e)}"
+        st.error(f"Error during login: {str(e)}")
+        return None
 
-
+# Firebase Signup
 def firebase_signup(email, password):
     try:
         user = auth.create_user(email=email, password=password)
@@ -99,6 +96,7 @@ def firebase_signup(email, password):
     except Exception as e:
         return str(e)
 
+# Notes Generation
 def generate_notes(topic, pdf_context):
     prompt = f"Generate detailed notes on {topic} using the following context: {pdf_context}"
     return generate_content(prompt)
@@ -110,7 +108,7 @@ def generate_quiz(subject):
         {
             "question": f"Sample Question {i+1} for {subject}?",
             "choices": ["Option A", "Option B", "Option C", "Option D"],
-            "answer": randint(0, 3)  # Randomly set an answer for demonstration
+            "answer": randint(0, 3)
         }
         for i in range(3)
     ]
@@ -120,7 +118,7 @@ def evaluate_quiz(user_answers, quiz):
     correct = sum(1 for i, answer in enumerate(user_answers) if answer == quiz[i]["answer"])
     return correct, len(quiz)
 
-# Load chat history from Firebase
+# Load and Save Chat History
 def load_chat_history(user_id):
     try:
         chat_docs = db.collection("chat_context").document(user_id).get().to_dict()
@@ -129,7 +127,6 @@ def load_chat_history(user_id):
         st.error(f"Error loading chat history: {str(e)}")
         return []
 
-# Save a message to Firebase
 def save_message(user_id, role, content):
     try:
         db.collection("chat_context").document(user_id).update({
@@ -138,68 +135,52 @@ def save_message(user_id, role, content):
     except Exception as e:
         st.error(f"Error saving message: {str(e)}")
 
-# Streamlit UI
+# Streamlit Interface
 st.set_page_config(layout="wide")
 
-# Sidebar for chat history and profile information (only visible if logged in)
+# Sidebar and User Authentication
 if "user_id" in st.session_state:
     with st.sidebar:
         st.title("Chat History")
 
-        # Display chat history as clickable headers
         chat_context = load_chat_history(st.session_state.user_id)
-        
-        if chat_context:
-            for i, message in enumerate(chat_context):
-                # Create a short heading (first 30 characters or so)
-                short_heading = f"{message['role']}: {message['content'][:30]}..." if len(message['content']) > 30 else message['content']
-                
-                # Use an expander to reveal the full message when clicked
-                with st.expander(short_heading):
-                    st.write(message['content'])
-        else:
-            st.write("No chat history available.")
+        for i, message in enumerate(chat_context):
+            short_heading = f"{message['role']}: {message['content'][:30]}..."
+            with st.expander(short_heading):
+                st.write(message['content'])
 
-        
         user = auth.get_user(st.session_state.user_id)
         st.title("Welcome")
         st.write(f"Email: {user.email}")
         if st.button("Logout"):
-            # Clear all session state and reset page
             st.session_state.clear()
-            st.rerun()    # This triggers a rerun by setting query params
-            st.stop()  # Prevents further code execution after refresh
+            st.rerun()
 
-# Main UI Area
+# Main Content
 st.title("AI Teacher Chatbot Interface")
 st.write("An AI-powered teacher that generates notes, answers questions, and creates quizzes.")
 
-# Authentication Page: Login or Signup
+# Authentication Interface
 if "user_id" not in st.session_state:
     st.subheader("Welcome! Please Login or Sign Up")
     auth_choice = st.selectbox("Choose an action", ["Login", "Sign Up"])
 
     if auth_choice == "Login":
-        st.subheader("Login")
         email = st.text_input("Email")
         password = st.text_input("Password", type="password")
-
         if st.button("Login"):
-            user = firebase_login(email, password)
-            if user:
-                st.session_state.user_id = user.uid
-                st.session_state.chat_history = load_chat_history(user.uid)
+            user_id = firebase_login(email, password)
+            if user_id:
+                st.session_state.user_id = user_id
+                st.session_state.chat_history = load_chat_history(user_id)
                 st.success("Logged in successfully!")
-                st.rerun()    # This triggers a rerun by setting query params
-                st.stop()  # Prevents further code execution after refresh
+                st.rerun()
             else:
                 st.error("Login failed. Check your credentials.")
 
     elif auth_choice == "Sign Up":
-        st.subheader("Sign Up")
         email = st.text_input("Email")
         password = st.text_input("Password", type="password")
-
         if st.button("Sign Up"):
             signup_result = firebase_signup(email, password)
             if isinstance(signup_result, str):
@@ -209,14 +190,11 @@ if "user_id" not in st.session_state:
 
 # Chatbot Interface for Authenticated Users
 if "user_id" in st.session_state:
-    # Main options for interacting with the chatbot
     option = st.selectbox("Choose an option:", ["Generate Notes", "Ask Doubt", "Take Quiz"])
 
     if option == "Generate Notes":
         topic = st.text_input("Enter the topic for notes generation:")
-
-        # Load PDF file automatically for context
-        pdf_path = "./req/Master_Intro. to cloud computing 1.pdf"  # Path to your reference PDF file
+        pdf_path = "./req/Master_Intro. to cloud computing 1.pdf"
         pdf_context = extract_pdf_text(pdf_path)
 
         if st.button("Generate Notes"):
@@ -234,32 +212,19 @@ if "user_id" in st.session_state:
     elif option == "Take Quiz":
         subject = st.text_input("Enter the subject for the quiz:")
         
-        # Generate quiz only if "Generate Quiz" button is clicked
         if st.button("Generate Quiz"):
             st.session_state.quiz = generate_quiz(subject)
-            st.session_state.user_answers = [None] * len(st.session_state.quiz)  # Initialize answers
+            st.session_state.user_answers = [None] * len(st.session_state.quiz)
 
-        # Display quiz questions if they are in session state
         if st.session_state.quiz:
             for i, q in enumerate(st.session_state.quiz):
                 st.write(f"Q{i+1}: {q['question']}")
-                
-                # Maintain the state of each radio selection
-                if st.session_state.user_answers[i] is None:
-                    st.session_state.user_answers[i] = st.radio(
-                        f"Choose an answer for Question {i+1}:",
-                        options=q["choices"],
-                        key=f"q{i}"
-                    )
-                else:
-                    st.session_state.user_answers[i] = st.radio(
-                        f"Choose an answer for Question {i+1}:",
-                        options=q["choices"],
-                        index=q["choices"].index(st.session_state.user_answers[i]),
-                        key=f"q{i}"
-                    )
+                st.session_state.user_answers[i] = st.radio(
+                    f"Choose an answer for Question {i+1}:",
+                    options=q["choices"],
+                    key=f"q{i}"
+                )
 
-        # Submit Quiz button to evaluate answers
         if st.button("Submit Quiz") and st.session_state.quiz:
             correct, total = evaluate_quiz(st.session_state.user_answers, st.session_state.quiz)
             st.write(f"You scored {correct} out of {total}!")
