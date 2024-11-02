@@ -212,9 +212,8 @@ if "user_id" in st.session_state:
         if st.button("Clear History"):
             try:
                 db.collection("chat_context").document(st.session_state.user_id).set({"context": []})
-                st.session_state.chat_history = []
+                st.session_state.chat_history.clear()
                 st.success("Chat history cleared!")
-                st.rerun()
             except Exception as e:
                 st.error(f"Error clearing history: {str(e)}")
 
