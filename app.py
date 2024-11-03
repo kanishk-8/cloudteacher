@@ -295,15 +295,7 @@ if "user_id" in st.session_state:
             save_message(st.session_state.user_id, "AI", notes)
             with st.expander("Generated Notes", expanded=True):
                 st.markdown(notes, unsafe_allow_html=True)
-            components.html("""
-    <html>
-        <body>
-            <button onclick="window.print()" style="padding:10px 20px; font-size:16px;">
-                Print as PDF
-            </button>
-        </body>
-    </html>
-""", height=50)
+            st.download_button("Download", notes)
 
     elif option == "Ask Doubt":
         question = st.text_input("Enter your question:")
