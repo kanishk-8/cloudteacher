@@ -260,7 +260,7 @@ if "user_id" not in st.session_state:
             else:
                 st.success("Account created successfully! Please log in.")
 
-# Chatbot Interface for Authenticated
+# Chatbot Interface for Authenticate
 if "user_id" in st.session_state:
     option = st.selectbox("Choose an option:", ["Generate Notes", "Ask Doubt", "Take Quiz"])
     if option == "Generate Notes":
@@ -295,7 +295,16 @@ if "user_id" in st.session_state:
             save_message(st.session_state.user_id, "AI", notes)
             with st.expander("Generated Notes", expanded=True):
                 st.markdown(notes, unsafe_allow_html=True)
-            st.download_button("Download", notes)
+            with st.form("download_form"):
+                download_button = st.form_submit_button("Download")
+
+                if download_button:
+                    st.download_button(
+                        label="Download",
+                        data=notes,
+                        file_name="notes.txt",
+                        mime="text/plain"
+                    )
 
     elif option == "Ask Doubt":
         question = st.text_input("Enter your question:")
