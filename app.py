@@ -299,7 +299,7 @@ if "user_id" in st.session_state:
     <html>
         <body>
             <button onclick="window.print()" style="padding:10px 20px; font-size:16px;">
-                Print Page as PDF
+                Print as PDF
             </button>
         </body>
     </html>
