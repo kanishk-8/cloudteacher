@@ -1,3 +1,4 @@
 /.env
 /ai_teacher_env
 /req/cloudteacher-995a5-firebase-adminsdk-52jrx-5bf86696c8.json
+.streamlit
