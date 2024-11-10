@@ -230,7 +230,10 @@ def save_message(user_id, role, content):
 
 # Streamlit Interface
 st.set_page_config(layout="wide")
-
+if "temp_file_path" not in st.session_state:
+    st.session_state["temp_file_path"] = None
+if "uploaded_file" not in st.session_state:
+    st.session_state["uploaded_file"] = None
 # Sidebar and User Authentication
 if "user_id" in st.session_state:
     with st.sidebar:
@@ -350,20 +353,31 @@ if "user_id" in st.session_state:
         selected_topic = st.selectbox("Select Topic", topics)
         quiz_type = st.radio("Choose Quiz Type", ("Objective", "Subjective"))
         num_pages = st.slider("Number of questions:", min_value=5, max_value=20, value=5)
+
         if st.button("Generate Quiz"):
             with st.spinner("Generating quiz questions..."):
-                questions = generate_quiz_questions(selected_unit, selected_topic, quiz_type,num_pages)
+                questions = generate_quiz_questions(selected_unit, selected_topic, quiz_type, num_pages)
                 with st.expander("Questions", expanded=True):
                     st.markdown(questions, unsafe_allow_html=True)
+                
+                # Choose file upload type and file
                 file_type = st.radio("Upload answer as:", ["Image", "PDF"], key="file_type")
                 uploaded_file = st.file_uploader(f"Upload {file_type} file for all questions", type=["png", "jpg", "jpeg", "pdf"], key="uploader_all")
-                
-                if uploaded_file:
+
+                # Store uploaded file in session state to persist across reloads
+                if uploaded_file is not None:
+                    st.session_state["uploaded_file"] = uploaded_file
+
+                if st.session_state["uploaded_file"]:
                     suffix = ".pdf" if file_type == "PDF" else ".jpg"
-                    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
-                    temp_file.write(uploaded_file.getbuffer())
-                    st.session_state["temp_file_path"] = temp_file.name
-                    response= eval_quiz(questions,st.session_state["temp_file_path"])
+                    
+                    # Write file to temp path if not already done
+                    if st.session_state["temp_file_path"] is None:
+                        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
+                        temp_file.write(st.session_state["uploaded_file"].getbuffer())
+                        st.session_state["temp_file_path"] = temp_file.name
+
+                    response = eval_quiz(questions, st.session_state["temp_file_path"])
                     with st.expander("Evaluation", expanded=True):
                         st.markdown(response, unsafe_allow_html=True)
                     
