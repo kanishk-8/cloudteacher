@@ -364,19 +364,25 @@ if "user_id" in st.session_state:
                     st.markdown(questions, unsafe_allow_html=True)
                 
                 # Choose file upload type and file
-                file_type = st.radio("Upload answer as:", ["Image", "PDF"], key="file_type")
-                uploaded_file = st.file_uploader(f"Upload {file_type} file for all questions", type=["png", "jpg", "jpeg", "pdf"], key="uploader_all")
+                with st.form(key="upload_form"):
+                    file_type = st.radio("Upload answer as:", ["Image", "PDF"], key="file_type")
+                    uploaded_file = st.file_uploader(
+                        f"Upload {file_type} file for all questions",
+                        type=["png", "jpg", "jpeg", "pdf"],
+                        key="uploader_all"
+                    )
+                    submit_upload = st.form_submit_button("Submit File")
 
                 # Store uploaded file buffer in session state to persist across reloads
-                if uploaded_file is not None:
+                if submit_upload and uploaded_file:
                     st.session_state["uploaded_file_buffer"] = uploaded_file.getbuffer()
+                    suffix = ".pdf" if file_type == "PDF" else ".jpg"
 
                 # If there is a file buffer saved in session state, write it to a temp file only once
                 if st.session_state["uploaded_file_buffer"] and st.session_state["temp_file_path"] is None:
-                    suffix = ".pdf" if file_type == "PDF" else ".jpg"
                     temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
                     temp_file.write(st.session_state["uploaded_file_buffer"])
-                    temp_file.flush()  # Ensure data is written before use
+                    temp_file.flush()  
                     st.session_state["temp_file_path"] = temp_file.name
 
                 # If temp file path is ready, evaluate the quiz
