@@ -116,7 +116,10 @@ if "quiz" not in st.session_state:
     st.session_state.quiz = []
 if "user_answers" not in st.session_state:
     st.session_state.user_answers = []
-
+if "temp_file_path" not in st.session_state:
+    st.session_state["temp_file_path"] = None
+if "uploaded_file_buffer" not in st.session_state:
+    st.session_state["uploaded_file_buffer"] = None
 # PDF Text Extraction
 def extract_pdf_text(pdf_path):
     try:
