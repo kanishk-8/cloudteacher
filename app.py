@@ -130,7 +130,7 @@ def extract_pdf_text(pdf_path):
         return f"Error extracting text from PDF: {str(e)}"
 def generate_quiz_questions(unit, topic, quiz_type,number):
     model=genai.GenerativeModel(model_name=model_name)
-    prompt=f"Generate a {quiz_type} quiz on the {topic} of {number} questions"
+    prompt=f"Generate a {quiz_type} quiz on the {topic} of {number} questions, dont put in the answers"
     response = model.generate_content(prompt)
     return response.text if response else "No quiz generated."
 # AI Content Generation
@@ -364,20 +364,20 @@ if "user_id" in st.session_state:
                 file_type = st.radio("Upload answer as:", ["Image", "PDF"], key="file_type")
                 uploaded_file = st.file_uploader(f"Upload {file_type} file for all questions", type=["png", "jpg", "jpeg", "pdf"], key="uploader_all")
 
-                # Store uploaded file in session state to persist across reloads
+                # Store uploaded file buffer in session state to persist across reloads
                 if uploaded_file is not None:
-                    st.session_state["uploaded_file"] = uploaded_file
+                    st.session_state["uploaded_file_buffer"] = uploaded_file.getbuffer()
 
-                if st.session_state["uploaded_file"]:
+                # If there is a file buffer saved in session state, write it to a temp file only once
+                if st.session_state["uploaded_file_buffer"] and st.session_state["temp_file_path"] is None:
                     suffix = ".pdf" if file_type == "PDF" else ".jpg"
-                    
-                    # Write file to temp path if not already done
-                    if st.session_state["temp_file_path"] is None:
-                        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
-                        temp_file.write(st.session_state["uploaded_file"].getbuffer())
-                        st.session_state["temp_file_path"] = temp_file.name
+                    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
+                    temp_file.write(st.session_state["uploaded_file_buffer"])
+                    temp_file.flush()  # Ensure data is written before use
+                    st.session_state["temp_file_path"] = temp_file.name
 
+                # If temp file path is ready, evaluate the quiz
+                if st.session_state["temp_file_path"]:
                     response = eval_quiz(questions, st.session_state["temp_file_path"])
                     with st.expander("Evaluation", expanded=True):
                         st.markdown(response, unsafe_allow_html=True)
-                    
