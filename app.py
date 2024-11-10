@@ -350,43 +350,60 @@ if "user_id" in st.session_state:
             st.session_state.chat_history.append({"role": "AI", "content": answer})
             save_message(st.session_state.user_id, "AI", answer)
 
+    # Quiz generation
     elif option == "Take Quiz":
+        # Step 1: Select unit, topic, and quiz type
         selected_unit = st.selectbox("Select Unit", list(units.keys()))
         topics = units[selected_unit] if selected_unit != "Select Unit" else ["Select a Unit first"]
         selected_topic = st.selectbox("Select Topic", topics)
         quiz_type = st.radio("Choose Quiz Type", ("Objective", "Subjective"))
         num_pages = st.slider("Number of questions:", min_value=5, max_value=20, value=5)
 
+        # Step 2: Generate Quiz
         if st.button("Generate Quiz"):
             with st.spinner("Generating quiz questions..."):
                 questions = generate_quiz_questions(selected_unit, selected_topic, quiz_type, num_pages)
-                with st.expander("Questions", expanded=True):
-                    st.markdown(questions, unsafe_allow_html=True)
-                
-                # Choose file upload type and file
-                with st.form(key="upload_form"):
-                    file_type = st.radio("Upload answer as:", ["Image", "PDF"], key="file_type")
-                    uploaded_file = st.file_uploader(
-                        f"Upload {file_type} file for all questions",
-                        type=["png", "jpg", "jpeg", "pdf"],
-                        key="uploader_all"
-                    )
-                    submit_upload = st.form_submit_button("Submit File")
+                st.session_state["generated_questions"] = questions  # Save questions to session state
+                st.session_state["quiz_generated"] = True  # Mark quiz as generated
+                st.session_state["evaluation_result"] = None  # Reset any previous evaluation result
 
-                # Store uploaded file buffer in session state to persist across reloads
-                if submit_upload and uploaded_file:
-                    st.session_state["uploaded_file_buffer"] = uploaded_file.getbuffer()
-                    suffix = ".pdf" if file_type == "PDF" else ".jpg"
+        # Step 3: Display generated questions if the quiz has been generated
+        if st.session_state.get("quiz_generated", False):
+            st.write("### Quiz Questions")
+            st.markdown(st.session_state["generated_questions"], unsafe_allow_html=True)  # Display stored questions
 
-                # If there is a file buffer saved in session state, write it to a temp file only once
-                if st.session_state["uploaded_file_buffer"] and st.session_state["temp_file_path"] is None:
-                    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
-                    temp_file.write(st.session_state["uploaded_file_buffer"])
-                    temp_file.flush()  
-                    st.session_state["temp_file_path"] = temp_file.name
+            # Step 4: Upload answer file section
+            st.write("### Submit Your Answers")
+            file_type = st.radio("Upload answer as:", ["Image", "PDF"], key="file_type")
+            uploaded_file = st.file_uploader(
+                f"Upload {file_type} file for your answers",
+                type=["png", "jpg", "jpeg", "pdf"],
+                key="uploader_all"
+            )
 
-                # If temp file path is ready, evaluate the quiz
-                if st.session_state["temp_file_path"]:
-                    response = eval_quiz(questions, st.session_state["temp_file_path"])
-                    with st.expander("Evaluation", expanded=True):
-                        st.markdown(response, unsafe_allow_html=True)
+            # Step 5: Save the uploaded file to a temporary location
+            if uploaded_file:
+                st.session_state["uploaded_file_buffer"] = uploaded_file.getbuffer()
+                st.session_state["suffix"] = ".pdf" if file_type == "PDF" else ".jpg"
+                st.session_state["temp_file_path"] = None  # Reset temp file path for new submission
+
+                # Write uploaded file to temp file if buffer exists
+                if st.session_state["uploaded_file_buffer"]:
+                    if st.session_state["temp_file_path"] is None:
+                        suffix = st.session_state["suffix"]
+                        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
+                        temp_file.write(st.session_state["uploaded_file_buffer"])
+                        temp_file.flush()
+                        st.session_state["temp_file_path"] = temp_file.name
+
+            # Step 6: Evaluate the quiz only if temp file path exists
+            if st.session_state.get("temp_file_path"):
+                if st.button("Evaluate Quiz"):
+                    with st.spinner("Evaluating..."):
+                        response = eval_quiz(st.session_state["generated_questions"], st.session_state["temp_file_path"])
+                        st.session_state["evaluation_result"] = response.text  # Save evaluation result
+
+        # Step 7: Display evaluation result if available
+        if st.session_state.get("evaluation_result"):
+            st.write("### Evaluation Result")
+            st.markdown(st.session_state["evaluation_result"], unsafe_allow_html=True)
