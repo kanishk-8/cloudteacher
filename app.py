@@ -8,10 +8,11 @@ import tempfile
 import requests
 from random import randint
 import os
-from reportlab.lib.pagesizes import A4
-from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet
+import markdown2
 import io
-import streamlit.components.v1 as components
 
 # Load environment variables
 load_dotenv()
@@ -57,23 +58,6 @@ units = {
         "Case Study: MiCEF Computing Programs using CloudSim and iFogSim"
     ]
 }
-# PDF Export Function
-def export_notes_to_pdf(notes, filename="notes.pdf"):
-    pdf_buffer = io.BytesIO()
-    c = canvas.Canvas(pdf_buffer, pagesize=A4)
-    width, height = A4
-    text = c.beginText(40, height - 40)
-    text.setFont("Helvetica", 12)
-    text.setLeading(14)
-    
-    for line in notes.splitlines():
-        text.textLine(line)
-    
-    c.drawText(text)
-    c.showPage()
-    c.save()
-    pdf_buffer.seek(0)
-    return pdf_buffer
 
 # Firebase Initialization
 if not firebase_admin._apps:
@@ -163,6 +147,7 @@ def firebase_signup(email, password):
 def generate_notes(topic, pdf_context):
     prompt = f"Generate detailed notes on {topic} using the following context: {pdf_context}"
     return generate_content(prompt)
+
 def generate_content_with_file(prompt, pdf_path):
     try:
         model = genai.GenerativeModel(model_name="gemini-1.5-flash")
@@ -172,22 +157,39 @@ def generate_content_with_file(prompt, pdf_path):
     except Exception as e:
         return f"Error generating content: {str(e)}"
 
-
-# Quiz Creation and Evaluation
+# Generate a quiz without exposing answers to the user
 def generate_quiz(subject):
+    # Generate the quiz content with questions and choices only
     quiz_content = generate_content(f"Create a quiz for {subject} with answer choices and an answer key.")
     questions = [
         {
             "question": f"Sample Question {i+1} for {subject}?",
             "choices": ["Option A", "Option B", "Option C", "Option D"],
-            "answer": randint(0, 3)
+            "answer": randint(0, 3)  # Internally store the correct answer
         }
-        for i in range(3)
+        for i in range(3)  # Sample size, or adapt based on quiz content generation
     ]
     return questions
 
-def evaluate_quiz(user_answers, quiz):
-    correct = sum(1 for i, answer in enumerate(user_answers) if answer == quiz[i]["answer"])
+# Extract text answers from the uploaded image using Gemini API
+def extract_answers_from_image(image_path):
+    try:
+        # Upload the image to Gemini and extract text
+        model = genai.GenerativeModel(model_name="gemini-1.5-flash")
+        uploaded_image = genai.upload_file(image_path)
+        response = model.generate_content("Extract answers in format 'Q1: A, Q2: B...' from the uploaded quiz image.", [uploaded_image])
+
+        # Parse answers
+        answer_text = response.text if response else ""
+        extracted_answers = [line.split(": ")[1].strip() for line in answer_text.splitlines() if ":" in line]
+        return extracted_answers
+    except Exception as e:
+        st.error(f"Error extracting answers: {str(e)}")
+        return []
+
+# Evaluate extracted answers against the stored answers
+def evaluate_extracted_answers(extracted_answers, quiz):
+    correct = sum(1 for i, answer in enumerate(extracted_answers) if answer == quiz[i]["choices"][quiz[i]["answer"]][0])  # Check first character matches answer choice
     return correct, len(quiz)
 
 # Load and Save Chat History
@@ -201,51 +203,25 @@ def load_chat_history(user_id):
 
 def save_message(user_id, role, content):
     try:
-        # If the document doesn't exist, create it with an empty context array
         db.collection("chat_context").document(user_id).set({
             "context": firestore.ArrayUnion([{"role": role, "content": content}])
         }, merge=True)
     except Exception as e:
         st.error(f"Error saving message: {str(e)}")
 
+# Function to convert markdown notes to PDF
+def markdown_to_pdf(notes_text):
+    html_content = markdown2.markdown(notes_text)
+    pdf_buffer = io.BytesIO()
+    doc = SimpleDocTemplate(pdf_buffer, pagesize=letter)
+    styles = getSampleStyleSheet()
+    story = [Paragraph(line, styles["BodyText"]) for line in html_content.splitlines() if line.strip()]
+    doc.build(story)
+    pdf_buffer.seek(0)
+    return pdf_buffer
+
 # Streamlit Interface
 st.set_page_config(layout="wide")
-
-# Sidebar and User Authentication
-if "user_id" in st.session_state:
-    with st.sidebar:
-        st.title("Chat History")
-        chat_context = load_chat_history(st.session_state.user_id)
-        
-        # Display chat history and save to session state
-        if chat_context:
-            st.session_state.chat_history = chat_context
-        for i, message in enumerate(st.session_state.chat_history):
-            short_heading = f"{message['role']}: {message['content'][:30]}..."
-            with st.expander(short_heading):
-                st.write(message['content'])
-
-        user = auth.get_user(st.session_state.user_id)
-        
-
-        # Clear History Button
-        if st.button("Clear History"):
-            try:
-                db.collection("chat_context").document(st.session_state.user_id).set({"context": []})
-                st.session_state.chat_history.clear()
-                st.success("Chat history cleared!")
-            except Exception as e:
-                st.error(f"Error clearing history: {str(e)}")
-
-        # Logout Button
-        if st.button("Logout"):
-            st.session_state.clear()
-            if "temp_pdf_path" in st.session_state:
-                os.remove(st.session_state.temp_pdf_path)
-                del st.session_state.temp_pdf_path
-            st.rerun()
-
-# Main Content
 st.title("AI Teacher Chatbot Interface")
 st.write("An AI-powered teacher that generates notes, answers questions, and creates quizzes.")
 
@@ -277,78 +253,98 @@ if "user_id" not in st.session_state:
             else:
                 st.success("Account created successfully! Please log in.")
 
-# Chatbot Interface for Authenticate
+# Sidebar and User Authentication
 if "user_id" in st.session_state:
+    with st.sidebar:
+        st.title("Chat History")
+        chat_context = load_chat_history(st.session_state.user_id)
+        
+        if chat_context:
+            st.session_state.chat_history = chat_context
+        for i, message in enumerate(st.session_state.chat_history):
+            short_heading = f"{message['role']}: {message['content'][:30]}..."
+            with st.expander(short_heading):
+                st.write(message['content'])
+
+        user = auth.get_user(st.session_state.user_id)
+        
+        if st.button("Clear History"):
+            try:
+                db.collection("chat_context").document(st.session_state.user_id).set({"context": []})
+                st.session_state.chat_history = []
+                st.success("Chat history cleared.")
+                st.experimental_rerun()
+            except Exception as e:
+                st.error(f"Error clearing history: {str(e)}")
+
+        if st.button("Logout"):
+            del st.session_state["user_id"]
+            del st.session_state["chat_history"]
+            st.success("Logged out.")
+            st.experimental_rerun()
+
+    st.write("Choose an option below:")
     option = st.selectbox("Choose an option:", ["Generate Notes", "Ask Doubt", "Take Quiz"])
+
+    # Generate Notes
     if option == "Generate Notes":
         selected_unit = st.selectbox("Select Unit", list(units.keys()))
-        if selected_unit != "Select Unit":
-            topics = units[selected_unit]
-        else:
-            topics = ["Select a Unit first"]
+        topics = units[selected_unit]
         selected_topic = st.selectbox("Select Topic", topics)
+        comments = st.text_area("Additional instructions (optional):")
         pdf_file = st.file_uploader("Upload PDF for context (optional)")
-        default_pdf_path = "./req/Master_Intro. to cloud computing 1.pdf"
-        if pdf_file:
-            if "temp_pdf_path" not in st.session_state:
-                temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
-                temp_file.write(pdf_file.getbuffer())
-                st.session_state.temp_pdf_path = temp_file.name
-            pdf_path = st.session_state.temp_pdf_path
-        else:
-            pdf_path = default_pdf_path
-
-        comments = st.text_area("Additional comments or instructions (optional):")
-        num_pages = st.slider("Number of pages:", min_value=1, max_value=20, value=5)
 
         if st.button("Generate Notes"):
-            prompt = f"Generate detailed notes on {selected_topic} of approximately {num_pages} pages. Use the attached pdf as knowledge base, if anything irrelevant is given in the prompt return irrelevant, if the pdf is related to the topic but the topic is not in the pdf, generate from your knowledge, dont write exactly as written in the pdf, rephrase, change"
-            if comments:
-                prompt += f" Additional instructions: {comments}"
+            prompt = f"Generate notes on {selected_topic}. {comments}"
+            if pdf_file:
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
+                    temp_file.write(pdf_file.getbuffer())
+                    pdf_content = extract_pdf_text(temp_file.name)
+                    prompt += f" Context from PDF: {pdf_content}"
+            notes = generate_content(prompt)
+            st.markdown(notes, unsafe_allow_html=True)
+            pdf_data = markdown_to_pdf(notes)
+            st.download_button("Download as PDF", pdf_data, file_name="notes.pdf", mime="application/pdf")
 
-            with st.spinner("Generating notes..."):
-                notes = generate_content_with_file(prompt, pdf_path)
-            st.session_state.chat_history.append({"role": "AI", "content": notes})
-            save_message(st.session_state.user_id, "AI", notes)
-            with st.expander("Generated Notes", expanded=True):
-                st.markdown(notes, unsafe_allow_html=True)
-
-            # Generate PDF and add a download button
-            pdf_buffer = export_notes_to_pdf(notes)
-            st.download_button(
-                label="Download Notes as PDF",
-                data=pdf_buffer,
-                file_name="generated_notes.pdf",
-                mime="application/pdf"
-            )
-
+    # Ask Doubt
     elif option == "Ask Doubt":
         question = st.text_input("Enter your question:")
         if st.button("Get Answer"):
             answer = generate_content(f"Answer this question: {question}")
             st.write(answer)
-            st.session_state.chat_history.append({"role": "AI", "content": answer})
+            save_message(st.session_state.user_id, "User", question)
             save_message(st.session_state.user_id, "AI", answer)
 
+    # Take Quiz
     elif option == "Take Quiz":
-        subject = st.text_input("Enter the subject for the quiz:")
-        
+        selected_unit = st.selectbox("Select Unit", list(units.keys()))
+        topics = units[selected_unit]
+        selected_topic = st.selectbox("Select Topic", topics)
+
+        # Generate quiz and display questions
         if st.button("Generate Quiz"):
-            st.session_state.quiz = generate_quiz(subject)
-            st.session_state.user_answers = [None] * len(st.session_state.quiz)
+            st.session_state.quiz = generate_quiz(selected_topic)
 
         if st.session_state.quiz:
+            # Display each question without answers
             for i, q in enumerate(st.session_state.quiz):
                 st.write(f"Q{i+1}: {q['question']}")
-                st.session_state.user_answers[i] = st.radio(
-                    f"Choose an answer for Question {i+1}:",
-                    options=q["choices"],
-                    key=f"q{i}"
-                )
+                for choice in q["choices"]:
+                    st.write(f"- {choice}")
 
-        if st.button("Submit Quiz") and st.session_state.quiz:
-            correct, total = evaluate_quiz(st.session_state.user_answers, st.session_state.quiz)
-            st.write(f"You scored {correct} out of {total}!")
-            quiz_score_message = f"Quiz score: {correct}/{total}"
-            st.session_state.chat_history.append({"role": "AI", "content": quiz_score_message})
-            save_message(st.session_state.user_id, "AI", quiz_score_message)
+            # Image upload for answers
+            uploaded_image = st.file_uploader("Upload an image with your answers (e.g., 'Q1: A, Q2: C'):")
+
+            # Process the uploaded image for answers
+            if uploaded_image and st.button("Submit Quiz"):
+                with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+                    temp_file.write(uploaded_image.read())
+                    temp_file_path = temp_file.name
+                extracted_answers = extract_answers_from_image(temp_file_path)
+
+                if extracted_answers:
+                    # Evaluate extracted answers
+                    correct, total = evaluate_extracted_answers(extracted_answers, st.session_state.quiz)
+                    st.write(f"Your Score: {correct} out of {total}")
+                else:
+                    st.error("Could not extract answers from the image. Please ensure the format is correct.")
