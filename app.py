@@ -310,10 +310,10 @@ if "user_id" in st.session_state:
             pdf_path = default_pdf_path
 
         comments = st.text_area("Additional comments or instructions (optional):")
-        num_pages = st.slider("Number of pages:", min_value=1, max_value=20, value=5)
+        num_pages = st.slider("Number of words:", min_value=50, max_value=10000, value=5)
 
         if st.button("Generate Notes"):
-            prompt = f"Generate detailed notes on {selected_topic} of approximately {num_pages} pages. Use the attached pdf as knowledge base, if anything irrelevant is given in the prompt return irrelevant, if the pdf is related to the topic but the topic is not in the pdf, generate from your knowledge, dont write exactly as written in the pdf, rephrase, change"
+            prompt = f"Generate detailed notes on {selected_topic} of approximately {num_pages} words. Use the attached pdf as knowledge base, if anything irrelevant is given in the prompt return irrelevant, if the pdf is related to the topic but the topic is not in the pdf, generate from your knowledge, dont write exactly as written in the pdf, rephrase, change"
             if comments:
                 prompt += f" Additional instructions: {comments}"
 
@@ -330,7 +330,7 @@ if "user_id" in st.session_state:
     elif option == "Ask Doubt":
         question = st.text_input("Enter your question:")
         if st.button("Get Answer"):
-            answer = generate_content(f"Answer this question: {question}")
+            answer = generate_content(f"Answer this question: {question}, the question should be based around cloud computing, if it is not then respond- Kaalu ka chota hai ")
             st.write(answer)
             st.session_state.chat_history.append({"role": "AI", "content": answer})
             save_message(st.session_state.user_id, "AI", answer)
