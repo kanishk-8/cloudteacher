@@ -57,6 +57,23 @@ units = {
         "Case Study: MiCEF Computing Programs using CloudSim and iFogSim"
     ]
 }
+# PDF Export Function
+def export_notes_to_pdf(notes, filename="notes.pdf"):
+    pdf_buffer = io.BytesIO()
+    c = canvas.Canvas(pdf_buffer, pagesize=A4)
+    width, height = A4
+    text = c.beginText(40, height - 40)
+    text.setFont("Helvetica", 12)
+    text.setLeading(14)
+    
+    for line in notes.splitlines():
+        text.textLine(line)
+    
+    c.drawText(text)
+    c.showPage()
+    c.save()
+    pdf_buffer.seek(0)
+    return pdf_buffer
 
 # Firebase Initialization
 if not firebase_admin._apps:
@@ -285,7 +302,7 @@ if "user_id" in st.session_state:
         num_pages = st.slider("Number of pages:", min_value=1, max_value=20, value=5)
 
         if st.button("Generate Notes"):
-            prompt = f"Generate detailed notes on {selected_topic} of approximately {num_pages} pages."
+            prompt = f"Generate detailed notes on {selected_topic} of approximately {num_pages} pages. Use the attached pdf as knowledge base, if anything irrelevant is given in the prompt return irrelevant, if the pdf is related to the topic but the topic is not in the pdf, generate from your knowledge, dont write exactly as written in the pdf, rephrase, change"
             if comments:
                 prompt += f" Additional instructions: {comments}"
 
@@ -295,16 +312,15 @@ if "user_id" in st.session_state:
             save_message(st.session_state.user_id, "AI", notes)
             with st.expander("Generated Notes", expanded=True):
                 st.markdown(notes, unsafe_allow_html=True)
-            with st.form("download_form"):
-                download_button = st.form_submit_button("Download")
 
-                if download_button:
-                    st.download_button(
-                        label="Download",
-                        data=notes,
-                        file_name="notes.txt",
-                        mime="text/plain"
-                    )
+            # Generate PDF and add a download button
+            pdf_buffer = export_notes_to_pdf(notes)
+            st.download_button(
+                label="Download Notes as PDF",
+                data=pdf_buffer,
+                file_name="generated_notes.pdf",
+                mime="application/pdf"
+            )
 
     elif option == "Ask Doubt":
         question = st.text_input("Enter your question:")
