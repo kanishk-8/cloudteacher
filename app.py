@@ -128,7 +128,11 @@ def extract_pdf_text(pdf_path):
         return text_content
     except Exception as e:
         return f"Error extracting text from PDF: {str(e)}"
-
+def generate_quiz_questions(unit, topic, quiz_type,number):
+    model=genai.GenerativeModel(model_name=model_name)
+    prompt=f"Generate a {quiz_type} quiz on the {topic} of {number} questions"
+    response = model.generate_content(prompt)
+    return response.text if response else "No quiz generated."
 # AI Content Generation
 def generate_content(prompt):
     try:
@@ -137,7 +141,12 @@ def generate_content(prompt):
         return response.text if response else "No response generated."
     except Exception as e:
         return f"Error generating content: {str(e)}"
-
+def eval_quiz(questions, answers):
+    model = genai.GenerativeModel(model_name="gemini-1.5-flash")
+    prompt=f"Are the answers attached correct for the questions: {questions}, give a score where each question is for one mark and then give feedback for each question also"
+    sample_pdf = genai.upload_file(answers)
+    response = model.generate_content([prompt, sample_pdf])
+    return response
 # Firebase Login
 def firebase_login(email, password):
     try:
@@ -336,24 +345,25 @@ if "user_id" in st.session_state:
             save_message(st.session_state.user_id, "AI", answer)
 
     elif option == "Take Quiz":
-        subject = st.text_input("Enter the subject for the quiz:")
-        
+        selected_unit = st.selectbox("Select Unit", list(units.keys()))
+        topics = units[selected_unit] if selected_unit != "Select Unit" else ["Select a Unit first"]
+        selected_topic = st.selectbox("Select Topic", topics)
+        quiz_type = st.radio("Choose Quiz Type", ("Objective", "Subjective"))
+        num_pages = st.slider("Number of questions:", min_value=5, max_value=20, value=5)
         if st.button("Generate Quiz"):
-            st.session_state.quiz = generate_quiz(subject)
-            st.session_state.user_answers = [None] * len(st.session_state.quiz)
-
-        if st.session_state.quiz:
-            for i, q in enumerate(st.session_state.quiz):
-                st.write(f"Q{i+1}: {q['question']}")
-                st.session_state.user_answers[i] = st.radio(
-                    f"Choose an answer for Question {i+1}:",
-                    options=q["choices"],
-                    key=f"q{i}"
-                )
-
-        if st.button("Submit Quiz") and st.session_state.quiz:
-            correct, total = evaluate_quiz(st.session_state.user_answers, st.session_state.quiz)
-            st.write(f"You scored {correct} out of {total}!")
-            quiz_score_message = f"Quiz score: {correct}/{total}"
-            st.session_state.chat_history.append({"role": "AI", "content": quiz_score_message})
-            save_message(st.session_state.user_id, "AI", quiz_score_message)
+            with st.spinner("Generating quiz questions..."):
+                questions = generate_quiz_questions(selected_unit, selected_topic, quiz_type,num_pages)
+                with st.expander("Questions", expanded=True):
+                    st.markdown(questions, unsafe_allow_html=True)
+                file_type = st.radio("Upload answer as:", ["Image", "PDF"], key="file_type")
+                uploaded_file = st.file_uploader(f"Upload {file_type} file for all questions", type=["png", "jpg", "jpeg", "pdf"], key="uploader_all")
+                
+                if uploaded_file:
+                    suffix = ".pdf" if file_type == "PDF" else ".jpg"
+                    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
+                    temp_file.write(uploaded_file.getbuffer())
+                    st.session_state["temp_file_path"] = temp_file.name
+                    response= eval_quiz(questions,st.session_state["temp_file_path"])
+                    with st.expander("Evaluation", expanded=True):
+                        st.markdown(response, unsafe_allow_html=True)
+                    
