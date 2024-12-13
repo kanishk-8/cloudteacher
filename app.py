@@ -331,7 +331,7 @@ if "user_id" in st.session_state:
     elif option == "Ask Doubt":
         question = st.text_input("Enter your question:")
         if st.button("Get Answer"):
-            answer = generate_content(f"Answer this doubt based on Cloud computing: {question}, answer the doubt to the best of your knowledge do not ask for more context. If the asked doubt is not related to cloud computing output- I can only answer questions related to cloud, dew, edge, fog computing.")
+            answer = generate_content(f"Answer this doubt based on Cloud computing: {question}, answer the doubt to the best of your knowledge do not ask for more context. If the asked doubt is not related to cloud computing output- I can only answer questions related to cloud, dew, edge, fog computing. If question is incomplete ask for more context")
             st.write(answer)
             st.session_state.chat_history.append({"role": "AI", "content": answer})
             save_message(st.session_state.user_id, "AI", answer)
