@@ -1,9 +1,9 @@
 import streamlit as st
 import firebase_admin
 from firebase_admin import credentials, firestore, auth
-import google.generativeai as genai
+from google import genai
 from dotenv import load_dotenv
-import fitz  # PyMuPDF for extracting text from PDFs
+import fitz  
 import tempfile
 import requests
 from random import randint
@@ -14,7 +14,6 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 import markdown2
 import io
-# Load environment variables
 load_dotenv()
 
 units = {
@@ -58,7 +57,7 @@ units = {
         "Case Study: MiCEF Computing Programs using CloudSim and iFogSim"
     ]
 }
-# PDF Export Function
+
 def export_notes_to_pdf(notes, filename="notes.pdf"):
     pdf_buffer = io.BytesIO()
     c = canvas.Canvas(pdf_buffer, pagesize=A4)
@@ -86,7 +85,6 @@ def markdown_to_pdf(notes_text):
     pdf_buffer.seek(0)
     return pdf_buffer
 
-# Firebase Initialization
 if not firebase_admin._apps:
     firebase_credentials = {
         "type": st.secrets["firebase_credentials"]["type"],
@@ -104,12 +102,10 @@ if not firebase_admin._apps:
     firebase_admin.initialize_app(cred)
 db = firestore.client()
 
-# Google Generative AI Configuration
 api_key = st.secrets["GEMINI_API_KEY"]
 genai.configure(api_key=api_key)
 model_name = "gemini-1.5-flash"
 
-# Session States
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 if "quiz" not in st.session_state:
@@ -120,7 +116,7 @@ if "temp_file_path" not in st.session_state:
     st.session_state["temp_file_path"] = None
 if "uploaded_file_buffer" not in st.session_state:
     st.session_state["uploaded_file_buffer"] = None
-# PDF Text Extraction
+
 def extract_pdf_text(pdf_path):
     try:
         text_content = ""
@@ -136,7 +132,7 @@ def generate_quiz_questions(unit, topic, quiz_type,number):
     prompt=f"Generate a {quiz_type} quiz on the {topic} of {number} questions, dont put in the answers"
     response = model.generate_content(prompt)
     return response.text if response else "No quiz generated."
-# AI Content Generation
+
 def generate_content(prompt):
     try:
         model = genai.GenerativeModel(model_name=model_name)
@@ -150,7 +146,7 @@ def eval_quiz(questions, answers):
     sample_pdf = genai.upload_file(answers)
     response = model.generate_content([prompt, sample_pdf])
     return response
-# Firebase Login
+
 def firebase_login(email, password):
     try:
         api_key = st.secrets["FIREBASE_WEB_API_KEY"]
@@ -174,7 +170,6 @@ def firebase_login(email, password):
         st.error(f"Error during login: {str(e)}")
         return None
 
-# Firebase Signup
 def firebase_signup(email, password):
     try:
         user = auth.create_user(email=email, password=password)
@@ -182,7 +177,6 @@ def firebase_signup(email, password):
     except Exception as e:
         return str(e)
 
-# Notes Generation
 def generate_notes(topic, pdf_context):
     prompt = f"Generate detailed notes on {topic} using the following context: {pdf_context}"
     return generate_content(prompt)
@@ -196,7 +190,6 @@ def generate_content_with_file(prompt, pdf_path):
         return f"Error generating content: {str(e)}"
 
 
-# Quiz Creation and Evaluation
 def generate_quiz(subject):
     quiz_content = generate_content(f"Create a quiz for {subject} with answer choices and an answer key.")
     questions = [
@@ -213,7 +206,6 @@ def evaluate_quiz(user_answers, quiz):
     correct = sum(1 for i, answer in enumerate(user_answers) if answer == quiz[i]["answer"])
     return correct, len(quiz)
 
-# Load and Save Chat History
 def load_chat_history(user_id):
     try:
         chat_doc = db.collection("chat_context").document(user_id).get().to_dict()
@@ -224,26 +216,23 @@ def load_chat_history(user_id):
 
 def save_message(user_id, role, content):
     try:
-        # If the document doesn't exist, create it with an empty context array
         db.collection("chat_context").document(user_id).set({
             "context": firestore.ArrayUnion([{"role": role, "content": content}])
         }, merge=True)
     except Exception as e:
         st.error(f"Error saving message: {str(e)}")
 
-# Streamlit Interface
 st.set_page_config(layout="wide")
 if "temp_file_path" not in st.session_state:
     st.session_state["temp_file_path"] = None
 if "uploaded_file" not in st.session_state:
     st.session_state["uploaded_file"] = None
-# Sidebar and User Authentication
+
 if "user_id" in st.session_state:
     with st.sidebar:
         st.title("Chat History")
         chat_context = load_chat_history(st.session_state.user_id)
         
-        # Display chat history and save to session state
         if chat_context:
             st.session_state.chat_history = chat_context
         for i, message in enumerate(st.session_state.chat_history):
@@ -254,7 +243,6 @@ if "user_id" in st.session_state:
         user = auth.get_user(st.session_state.user_id)
         
 
-        # Clear History Button
         if st.button("Clear History"):
             try:
                 db.collection("chat_context").document(st.session_state.user_id).set({"context": []})
@@ -263,7 +251,6 @@ if "user_id" in st.session_state:
             except Exception as e:
                 st.error(f"Error clearing history: {str(e)}")
 
-        # Logout Button
         if st.button("Logout"):
             st.session_state.clear()
             if "temp_pdf_path" in st.session_state:
@@ -271,11 +258,9 @@ if "user_id" in st.session_state:
                 del st.session_state.temp_pdf_path
             st.rerun()
 
-# Main Content
 st.title("CDEF TA")
 st.write("An AI-powered teaching Assitant that generates notes, answers questions, and creates quizzes.")
 
-# Authentication Interface
 if "user_id" not in st.session_state:
     st.subheader("Welcome! Please Login or Sign Up")
     auth_choice = st.selectbox("Choose an action", ["Login", "Sign Up"])
@@ -303,7 +288,6 @@ if "user_id" not in st.session_state:
             else:
                 st.success("Account created successfully! Please log in.")
 
-# Chatbot Interface for Authenticate
 if "user_id" in st.session_state:
     option = st.selectbox("Choose an option:", ["Generate Notes", "Ask Doubt", "Take Quiz"])
     if option == "Generate Notes":
@@ -363,7 +347,6 @@ if "user_id" in st.session_state:
                 with st.expander("Questions", expanded=True):
                     st.markdown(questions, unsafe_allow_html=True)
                 
-                # Choose file upload type and file
                 with st.form(key="upload_form"):
                     file_type = st.radio("Upload answer as:", ["Image", "PDF"], key="file_type")
                     uploaded_file = st.file_uploader(
@@ -373,19 +356,16 @@ if "user_id" in st.session_state:
                     )
                     submit_upload = st.form_submit_button("Submit File")
 
-                # Store uploaded file buffer in session state to persist across reloads
                 if submit_upload and uploaded_file:
                     st.session_state["uploaded_file_buffer"] = uploaded_file.getbuffer()
                     suffix = ".pdf" if file_type == "PDF" else ".jpg"
 
-                # If there is a file buffer saved in session state, write it to a temp file only once
                 if st.session_state["uploaded_file_buffer"] and st.session_state["temp_file_path"] is None:
                     temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
                     temp_file.write(st.session_state["uploaded_file_buffer"])
                     temp_file.flush()  
                     st.session_state["temp_file_path"] = temp_file.name
 
-                # If temp file path is ready, evaluate the quiz
                 if st.session_state["temp_file_path"]:
                     response = eval_quiz(questions, st.session_state["temp_file_path"])
                     with st.expander("Evaluation", expanded=True):
